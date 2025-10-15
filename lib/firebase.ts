@@ -3,7 +3,7 @@ import { initializeApp, getApps } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getAnalytics } from 'firebase/analytics'
 import { getFirestore } from 'firebase/firestore'
-import { getStorage } from 'firebase/storage'
+// import { getStorage } from 'firebase/storage' // Commented out - requires Blaze plan
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -19,7 +19,7 @@ const firebaseConfig = {
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
 const auth = getAuth(app)
 const db = getFirestore(app)
-const storage = getStorage(app)
+// const storage = getStorage(app) // Commented out - requires Blaze plan upgrade
 
 // Initialize Analytics only in browser
 let analytics
@@ -27,4 +27,5 @@ if (typeof window !== 'undefined') {
   analytics = getAnalytics(app)
 }
 
-export { app, auth, db, storage, analytics }
+export { app, auth, db, analytics }
+// export { storage } // Commented out - Storage requires Blaze plan upgrade

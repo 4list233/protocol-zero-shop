@@ -13,13 +13,16 @@ import {
   increment,
   serverTimestamp
 } from 'firebase/firestore'
-import { 
-  ref, 
-  uploadBytes, 
-  getDownloadURL,
-  deleteObject 
-} from 'firebase/storage'
-import { db, storage } from './firebase'
+// Storage functions commented out - requires Blaze plan upgrade
+// Only needed if uploading video files directly instead of using YouTube
+// import { 
+//   ref, 
+//   uploadBytes, 
+//   getDownloadURL,
+//   deleteObject 
+// } from 'firebase/storage'
+import { db } from './firebase'
+// import { storage } from './firebase' // Commented out
 
 // Types
 export type ClipTag = "speedsoft" | "milsim" | "multikill" | "funny" | "tutorial" | "gear-review"
@@ -218,6 +221,9 @@ export function markClipsAsLiked(clips: Clip[], userId: string): Clip[] {
 }
 
 // ==================== STORAGE OPERATIONS ====================
+// These functions are commented out because they require Firebase Storage (Blaze plan)
+// Current implementation uses YouTube embeds only, which is free!
+// Uncomment these if you upgrade to Blaze plan and want direct video uploads
 
 /**
  * Upload a video file to Firebase Storage
@@ -225,6 +231,7 @@ export function markClipsAsLiked(clips: Clip[], userId: string): Clip[] {
  * @param userId - The user ID (for organizing files)
  * @returns The download URL and storage path
  */
+/* 
 export async function uploadClipVideo(
   file: File, 
   userId: string
@@ -249,10 +256,12 @@ export async function uploadClipVideo(
     throw error
   }
 }
+*/
 
 /**
  * Delete a video file from Firebase Storage
  */
+/* 
 export async function deleteClipVideo(storagePath: string): Promise<void> {
   try {
     const storageRef = ref(storage, storagePath)
@@ -263,10 +272,12 @@ export async function deleteClipVideo(storagePath: string): Promise<void> {
     throw error
   }
 }
+*/
 
 /**
  * Upload a thumbnail image to Firebase Storage
  */
+/* 
 export async function uploadClipThumbnail(
   file: File,
   userId: string
@@ -286,6 +297,7 @@ export async function uploadClipThumbnail(
     throw error
   }
 }
+*/
 
 // ==================== HELPER FUNCTIONS ====================
 
