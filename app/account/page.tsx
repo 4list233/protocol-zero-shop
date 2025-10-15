@@ -6,11 +6,12 @@ import Link from "next/link"
 import Image from "next/image"
 import { User, Mail, ShoppingBag, LogOut, Settings } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 
 export default function AccountPage() {
   const { user, loading, signOut } = useAuth()
   const router = useRouter()
+  const [editingName, setEditingName] = useState(false)
 
   useEffect(() => {
     if (!loading && !user) {
@@ -56,9 +57,9 @@ export default function AccountPage() {
             <span className="text-xl font-bold tracking-tight">Protocol Zero</span>
           </Link>
           <nav className="flex gap-6 items-center">
-            <Link href="/" className="text-sm font-medium hover:underline">Home</Link>
-            <Link href="/shop" className="text-sm font-medium hover:underline">Shop</Link>
-            <Link href="/clips" className="text-sm font-medium hover:underline">Clips</Link>
+            <Link href="/" className="text-sm font-medium hover:text-[#3D9A6C] transition-colors">Home</Link>
+            <Link href="/shop" className="text-sm font-medium hover:text-[#3D9A6C] transition-colors">Shop</Link>
+            <Link href="/clips" className="text-sm font-medium hover:text-[#3D9A6C] transition-colors">Clips</Link>
           </nav>
         </div>
       </header>
@@ -75,7 +76,7 @@ export default function AccountPage() {
         <div className="grid md:grid-cols-3 gap-8">
           {/* Profile Section */}
           <div className="md:col-span-1">
-            <div className="border-2 rounded-xl p-6 bg-card shadow-sm hover:shadow-md hover:border-primary/30 transition-all space-y-6">
+            <div className="border-2 rounded-xl p-6 bg-card shadow-sm hover:shadow-md hover:border-[#3D9A6C]/60 transition-all space-y-6">
               {/* Profile Picture */}
               <div className="flex flex-col items-center text-center">
                 {user.photoURL ? (
@@ -124,8 +125,40 @@ export default function AccountPage() {
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Full Name</label>
-                  <p className="text-base font-semibold mt-1">{user.displayName || "Not provided"}</p>
+                  <label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    Full Name
+                    <button
+                      type="button"
+                      className="ml-2 p-1 rounded hover:bg-[#3D9A6C]/20 transition"
+                      onClick={() => setEditingName(true)}
+                      aria-label="Edit Full Name"
+                    >
+                      {/* Pencil Icon */}
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[#A1A1A1] hover:text-[#3D9A6C] transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.862 3.487a2.25 2.25 0 113.182 3.182l-1.06 1.06-3.182-3.182 1.06-1.06zM4 20.25V17.5a2.25 2.25 0 012.25-2.25h2.75l8.182-8.182-3.182-3.182L6.25 12.068V14.5A2.25 2.25 0 014 16.75v3.5a.75.75 0 00.75.75h3.5A2.25 2.25 0 0110.5 20.25h-3.5A.75.75 0 014 20.25z" /></svg>
+                    </button>
+                  </label>
+                  {editingName ? (
+                    <input
+                      type="text"
+                      defaultValue={user.displayName || ""}
+                      className="mt-1 w-full px-3 py-2 rounded-lg border border-[#A1A1A1] bg-background text-base font-semibold focus:outline-none focus:border-[#3D9A6C] focus:ring-2 focus:ring-[#3D9A6C] transition"
+                      onBlur={async (e) => {
+                        const newName = e.target.value.trim()
+                        if (newName && newName !== user.displayName) {
+                          try {
+                            await user.updateProfile({ displayName: newName })
+                            window.location.reload()
+                          } catch (err) {
+                            alert("Failed to update name.")
+                          }
+                        }
+                        setEditingName(false)
+                      }}
+                      autoFocus
+                    />
+                  ) : (
+                    <p className="text-base font-semibold mt-1">{user.displayName || "Not provided"}</p>
+                  )}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Email Address</label>
@@ -145,23 +178,23 @@ export default function AccountPage() {
             </div>
 
             {/* Quick Actions */}
-            <div className="border-2 rounded-xl p-6 bg-card shadow-sm">
+            <div className="border-2 rounded-xl p-6 bg-card shadow-sm hover:border-[#3D9A6C]/60 transition-all">
               <h3 className="text-2xl font-bold mb-6">Quick Actions</h3>
               <div className="grid sm:grid-cols-2 gap-4">
                 <Link href="/shop">
-                  <Button variant="outline" className="w-full h-20 flex-col gap-2">
+                  <Button variant="outline" className="w-full h-20 flex-col gap-2 hover:border-[#3D9A6C] hover:text-[#3D9A6C] hover:scale-105 transition-all">
                     <ShoppingBag className="h-6 w-6" />
                     <span>Browse Shop</span>
                   </Button>
                 </Link>
                 <Link href="/cart">
-                  <Button variant="outline" className="w-full h-20 flex-col gap-2">
+                  <Button variant="outline" className="w-full h-20 flex-col gap-2 hover:border-[#3D9A6C] hover:text-[#3D9A6C] hover:scale-105 transition-all">
                     <ShoppingBag className="h-6 w-6" />
                     <span>View Cart</span>
                   </Button>
                 </Link>
                 <Link href="/clips">
-                  <Button variant="outline" className="w-full h-20 flex-col gap-2">
+                  <Button variant="outline" className="w-full h-20 flex-col gap-2 hover:border-[#3D9A6C] hover:text-[#3D9A6C] hover:scale-105 transition-all">
                     <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
@@ -169,7 +202,7 @@ export default function AccountPage() {
                   </Button>
                 </Link>
                 <Link href="/">
-                  <Button variant="outline" className="w-full h-20 flex-col gap-2">
+                  <Button variant="outline" className="w-full h-20 flex-col gap-2 hover:border-[#3D9A6C] hover:text-[#3D9A6C] hover:scale-105 transition-all">
                     <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
