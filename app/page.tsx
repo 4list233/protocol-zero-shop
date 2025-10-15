@@ -133,7 +133,6 @@ export default function HomePage() {
     const now = new Date()
     return d.toISOString().slice(0,10) === now.toISOString().slice(0,10)
   })
-  }
   
   return (
     <div className="min-h-screen bg-[#0D0D0D]">
