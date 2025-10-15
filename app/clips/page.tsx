@@ -42,6 +42,7 @@ export default function ClipsPage() {
     description: "",
     youtubeUrl: "",
     tags: [] as ClipTag[],
+    date: "", // Game date in YYYY-MM-DD format
   })
 
   // Load clips from Firebase on mount
@@ -153,10 +154,11 @@ export default function ClipsPage() {
         youtubeUrl: uploadForm.youtubeUrl,
         youtubeId: youtubeId,
         tags: uploadForm.tags,
+        date: uploadForm.date, // Include game date
       })
 
       setShowUploadModal(false)
-      setUploadForm({ title: "", description: "", youtubeUrl: "", tags: [] })
+      setUploadForm({ title: "", description: "", youtubeUrl: "", tags: [], date: "" })
       
       // Reload clips to show the new one
       loadClips()
@@ -442,6 +444,20 @@ export default function ClipsPage() {
                   className="w-full bg-[#0D0D0D] border border-[#2C2C2C] text-[#F5F5F5] px-4 py-3 rounded-xl font-body focus:border-[#3D9A6C] focus:outline-none placeholder-[#A1A1A1] resize-none"
                   disabled={!user}
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-heading uppercase tracking-wide text-[#F5F5F5] mb-2">
+                  Game Date (Optional)
+                </label>
+                <input
+                  type="date"
+                  value={uploadForm.date}
+                  onChange={(e) => setUploadForm({ ...uploadForm, date: e.target.value })}
+                  className="w-full bg-[#0D0D0D] border border-[#2C2C2C] text-[#F5F5F5] px-4 py-3 rounded-xl font-mono text-sm focus:border-[#3D9A6C] focus:outline-none"
+                  disabled={!user}
+                />
+                <p className="text-xs text-[#A1A1A1] mt-1">Select the game day this clip is from</p>
               </div>
 
               <div>

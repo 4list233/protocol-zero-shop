@@ -40,6 +40,7 @@ export interface ClipData {
   likedBy: string[] // Array of user IDs who liked this clip
   comments: number
   timestamp: Date | Timestamp
+  date?: string // Game date in YYYY-MM-DD format (optional for backward compatibility)
   videoFile?: string // Optional: path to uploaded video file in Storage
 }
 
@@ -137,6 +138,38 @@ export async function getUserClips(userId: string): Promise<Clip[]> {
     return clips
   } catch (error) {
     console.error("Error getting user clips:", error)
+    throw error
+  }
+}
+
+/**
+ * Get clips for a specific date (YYYY-MM-DD)
+ */
+export async function getClipsByDate(date: string): Promise<Clip[]> {
+  try {
+    const q = query(
+      collection(db, 'clips'),
+      where('date', '==', date),
+      orderBy('timestamp', 'desc')
+    )
+    
+    const querySnapshot = await getDocs(q)
+    const clips: Clip[] = []
+    
+    querySnapshot.forEach((doc) => {
+      const data = doc.data() as ClipData
+      clips.push({
+        id: doc.id,
+        ...data,
+        timestamp: data.timestamp instanceof Timestamp 
+          ? data.timestamp.toDate() 
+          : new Date(data.timestamp),
+      })
+    })
+    
+    return clips
+  } catch (error) {
+    console.error("Error getting clips by date:", error)
     throw error
   }
 }
