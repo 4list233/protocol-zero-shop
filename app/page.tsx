@@ -76,26 +76,38 @@ export default function HomePage() {
     setMounted(true)
     // Fetch real sign-up counts from Firestore
     const fetchCounts = async () => {
-      const dateStrings = weekDates.map(d => d.toISOString().slice(0,10))
-      const counts = await getSignupCountsForWeek(dateStrings)
-      setCheckInCounts(counts)
-      setLoadingCounts(false)
+      try {
+        const dateStrings = weekDates.map(d => d.toISOString().slice(0,10))
+        const counts = await getSignupCountsForWeek(dateStrings)
+        setCheckInCounts(counts)
+        setLoadingCounts(false)
+      } catch (error) {
+        console.error("Error fetching signup counts:", error)
+        // Set all counts to 0 on error
+        setCheckInCounts(Array(7).fill(0))
+        setLoadingCounts(false)
+      }
     }
     fetchCounts()
 
     // Fetch clips for past dates
     const fetchPastClips = async () => {
-      const nowString = new Date().toISOString().slice(0,10)
-      const pastDates = weekDates.filter(d => d.toISOString().slice(0,10) < nowString)
-      const clipsData = await Promise.all(
-        pastDates.map(async (date) => {
-          const dateString = date.toISOString().slice(0,10)
-          const clips = await getClipsByDate(dateString)
-          return { date: dateString, clips }
-        })
-      )
-      setPastClips(clipsData.filter(d => d.clips.length > 0))
-      setLoadingClips(false)
+      try {
+        const nowString = new Date().toISOString().slice(0,10)
+        const pastDates = weekDates.filter(d => d.toISOString().slice(0,10) < nowString)
+        const clipsData = await Promise.all(
+          pastDates.map(async (date) => {
+            const dateString = date.toISOString().slice(0,10)
+            const clips = await getClipsByDate(dateString)
+            return { date: dateString, clips }
+          })
+        )
+        setPastClips(clipsData.filter(d => d.clips.length > 0))
+        setLoadingClips(false)
+      } catch (error) {
+        console.error("Error fetching past clips:", error)
+        setLoadingClips(false)
+      }
     }
     fetchPastClips()
   }, [weekDates])
