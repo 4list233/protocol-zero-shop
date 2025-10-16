@@ -1,8 +1,8 @@
-// Client-side Firebase configuration
-import { initializeApp, getApps } from 'firebase/app'
-import { getAuth } from 'firebase/auth'
-import { getAnalytics } from 'firebase/analytics'
-import { getFirestore } from 'firebase/firestore'
+// Client-safe Firebase initialization. Avoid initializing on the server or when env is missing.
+import { initializeApp, getApps, type FirebaseApp } from 'firebase/app'
+import { getAuth, type Auth } from 'firebase/auth'
+import { getAnalytics, type Analytics } from 'firebase/analytics'
+import { getFirestore, type Firestore } from 'firebase/firestore'
 // import { getStorage } from 'firebase/storage' // Commented out - requires Blaze plan
 
 const firebaseConfig = {
@@ -13,19 +13,30 @@ const firebaseConfig = {
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
-}
+} as const
 
-// Initialize Firebase only if it hasn't been initialized yet
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
-const auth = getAuth(app)
-const db = getFirestore(app)
+const isBrowser = typeof window !== 'undefined'
+
+let app: FirebaseApp | undefined
+let auth: Auth | undefined
+let db: Firestore | undefined
 // const storage = getStorage(app) // Commented out - requires Blaze plan upgrade
 
-// Initialize Analytics only in browser
-let analytics
-if (typeof window !== 'undefined') {
-  analytics = getAnalytics(app)
+// Only initialize in the browser and when we have a valid API key
+if (isBrowser && firebaseConfig.apiKey) {
+  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
+  auth = getAuth(app)
+  db = getFirestore(app)
 }
 
+// Initialize Analytics only in browser and when app exists
+let analytics: Analytics | undefined
+if (isBrowser && app && firebaseConfig.measurementId) {
+  try {
+    analytics = getAnalytics(app)
+  } catch {
+    // Ignore analytics errors in non-browser environments
+  }
+}
 export { app, auth, db, analytics }
 // export { storage } // Commented out - Storage requires Blaze plan upgrade

@@ -34,6 +34,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // If Firebase isn't configured (e.g., missing env vars), skip auth init
+    if (!auth) {
+      setLoading(false)
+      return
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user)
       setLoading(false)
@@ -44,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithGoogle = async () => {
     try {
+      if (!auth) throw new Error('Authentication is not available. Please try again later.')
       const provider = new GoogleAuthProvider()
       provider.setCustomParameters({
         prompt: 'select_account'
@@ -57,6 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithInstagram = async () => {
     try {
+      if (!auth) throw new Error('Authentication is not available. Please try again later.')
       const provider = new FacebookAuthProvider()
       provider.addScope('instagram_basic')
       await signInWithPopup(auth, provider)
@@ -68,6 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
+      if (!auth) return
       await firebaseSignOut(auth)
     } catch (error) {
       console.error('Error signing out:', error)

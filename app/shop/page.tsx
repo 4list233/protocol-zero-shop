@@ -46,6 +46,7 @@ export default function ShopPage() {
           <nav className="flex gap-6 items-center">
             <Link href="/" className="text-sm font-medium hover:text-[#3D9A6C] transition-colors">Home</Link>
             <Link href="/clips" className="text-sm font-medium hover:text-[#3D9A6C] transition-colors">Clips</Link>
+            <Link href="/account" className="text-sm font-medium hover:text-[#3D9A6C] transition-colors">Account</Link>
             <CartDrawer />
           </nav>
         </div>

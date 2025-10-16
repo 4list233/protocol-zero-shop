@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { CartDrawer } from "@/components/cart-drawer"
 import { useState, useEffect } from "react"
 import { useAuth } from "@/lib/auth-context"
@@ -28,6 +29,8 @@ const tagConfig: Record<ClipTag, { label: string; color: string }> = {
 
 export default function ClipsPage() {
   const { user } = useAuth()
+  const searchParams = useSearchParams()
+  const dateFilter = searchParams.get("date")
   const [clips, setClips] = useState<Clip[]>([])
   const [filteredClips, setFilteredClips] = useState<Clip[]>([])
   const [selectedTags, setSelectedTags] = useState<ClipTag[]>([])
@@ -35,6 +38,7 @@ export default function ClipsPage() {
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   // Upload form state
   const [uploadForm, setUploadForm] = useState({
@@ -63,14 +67,20 @@ export default function ClipsPage() {
       setClips(clipsWithLikeStatus)
     } catch (error) {
       console.error("Error loading clips:", error)
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to load clips')
     } finally {
       setLoading(false)
     }
   }
 
-  // Filter and sort clips
+  // Filter and sort clips (includes optional date filter)
   useEffect(() => {
     let filtered = [...clips]
+
+    // Filter by date from query param if provided
+    if (dateFilter) {
+      filtered = filtered.filter(clip => clip.date === dateFilter)
+    }
 
     // Filter by tags
     if (selectedTags.length > 0) {
@@ -91,7 +101,7 @@ export default function ClipsPage() {
     }
 
     setFilteredClips(filtered)
-  }, [clips, selectedTags, sortBy])
+  }, [clips, selectedTags, sortBy, dateFilter])
 
   const toggleTag = (tag: ClipTag) => {
     setSelectedTags(prev =>
@@ -199,6 +209,14 @@ export default function ClipsPage() {
           <ArrowLeft className="h-4 w-4" />
           Back to home
         </Link>
+
+        {/* Error Banner */}
+        {errorMessage && (
+          <div className="mb-6 p-4 bg-red-900/30 border border-red-600/40 text-red-200 rounded-xl">
+            <p className="font-semibold">{errorMessage}</p>
+            <p className="text-sm opacity-80">If you are deploying, ensure NEXT_PUBLIC_FIREBASE_* env vars are set.</p>
+          </div>
+        )}
 
         {/* Header Section */}
         <div className="mb-8 flex items-center justify-between flex-wrap gap-4">

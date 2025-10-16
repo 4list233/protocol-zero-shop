@@ -1,31 +1,22 @@
 // Firebase operations for clips functionality
-import { 
-  collection, 
-  addDoc, 
-  getDocs, 
-  doc, 
-  updateDoc, 
+import {
+  collection,
+  addDoc,
+  getDocs,
+  doc,
+  updateDoc,
   deleteDoc,
   query,
   orderBy,
   where,
   Timestamp,
   increment,
-  serverTimestamp
+  serverTimestamp,
 } from 'firebase/firestore'
-// Storage functions commented out - requires Blaze plan upgrade
-// Only needed if uploading video files directly instead of using YouTube
-// import { 
-//   ref, 
-//   uploadBytes, 
-//   getDownloadURL,
-//   deleteObject 
-// } from 'firebase/storage'
 import { db } from './firebase'
-// import { storage } from './firebase' // Commented out
 
 // Types
-export type ClipTag = "speedsoft" | "milsim" | "multikill" | "funny" | "tutorial" | "gear-review"
+export type ClipTag = 'speedsoft' | 'milsim' | 'multikill' | 'funny' | 'tutorial' | 'gear-review'
 
 export interface ClipData {
   userId: string
@@ -37,217 +28,140 @@ export interface ClipData {
   youtubeId: string
   tags: ClipTag[]
   likes: number
-  likedBy: string[] // Array of user IDs who liked this clip
+  likedBy: string[]
   comments: number
   timestamp: Date | Timestamp
-  date?: string // Game date in YYYY-MM-DD format (optional for backward compatibility)
-  videoFile?: string // Optional: path to uploaded video file in Storage
+  date?: string
+  videoFile?: string
 }
 
 export interface Clip extends ClipData {
   id: string
-  isLiked?: boolean // Client-side only, calculated based on current user
+  isLiked?: boolean
 }
 
-// ==================== CLIPS OPERATIONS ====================
-
-/**
- * Add a new clip to Firestore
- */
-export async function addClip(clipData: Omit<ClipData, 'likes' | 'likedBy' | 'comments' | 'timestamp'>): Promise<string> {
-  try {
-    const docRef = await addDoc(collection(db, 'clips'), {
-      ...clipData,
-      likes: 0,
-      likedBy: [],
-      comments: 0,
-      timestamp: serverTimestamp(),
-    })
-    console.log("Clip added with ID:", docRef.id)
-    return docRef.id
-  } catch (error) {
-    console.error("Error adding clip:", error)
-    throw error
+function requireDb() {
+  if (!db) {
+    throw new Error('Firebase is not configured. Please set NEXT_PUBLIC_FIREBASE_* env vars.')
   }
+  return db
 }
 
-/**
- * Get all clips, optionally filtered by tags
- */
+// Add a new clip
+export async function addClip(
+  clipData: Omit<ClipData, 'likes' | 'likedBy' | 'comments' | 'timestamp'>
+): Promise<string> {
+  const docRef = await addDoc(collection(requireDb(), 'clips'), {
+    ...clipData,
+    likes: 0,
+    likedBy: [],
+    comments: 0,
+    timestamp: serverTimestamp(),
+  })
+  return docRef.id
+}
+
+// Get all clips
 export async function getClips(tags?: ClipTag[]): Promise<Clip[]> {
-  try {
-    let q = query(collection(db, 'clips'), orderBy('timestamp', 'desc'))
-    
-    // Note: Firestore doesn't support array-contains-any with multiple values efficiently
-    // For tag filtering, we'll fetch all and filter client-side, or use multiple queries
-    
-    const querySnapshot = await getDocs(q)
-    const clips: Clip[] = []
-    
-    querySnapshot.forEach((doc) => {
-      const data = doc.data() as ClipData
-      
-      // Filter by tags if provided
-      if (tags && tags.length > 0) {
-        const hasMatchingTag = tags.some(tag => data.tags.includes(tag))
-        if (!hasMatchingTag) return
-      }
-      
-      clips.push({
-        id: doc.id,
-        ...data,
-        // Convert Firestore Timestamp to Date
-        timestamp: data.timestamp instanceof Timestamp 
-          ? data.timestamp.toDate() 
-          : new Date(data.timestamp),
-      })
+  const q = query(collection(requireDb(), 'clips'), orderBy('timestamp', 'desc'))
+  const querySnapshot = await getDocs(q)
+  const clips: Clip[] = []
+
+  querySnapshot.forEach((docSnap) => {
+    const data = docSnap.data() as ClipData
+    if (tags && tags.length > 0) {
+      const hasMatchingTag = tags.some((tag) => data.tags.includes(tag))
+      if (!hasMatchingTag) return
+    }
+    clips.push({
+      id: docSnap.id,
+      ...data,
+      timestamp: data.timestamp instanceof Timestamp ? data.timestamp.toDate() : new Date(data.timestamp),
     })
-    
-    return clips
-  } catch (error) {
-    console.error("Error getting clips:", error)
-    throw error
-  }
+  })
+  return clips
 }
 
-/**
- * Get clips by a specific user
- */
+// Get clips by user
 export async function getUserClips(userId: string): Promise<Clip[]> {
-  try {
-    const q = query(
-      collection(db, 'clips'),
-      where('userId', '==', userId),
-      orderBy('timestamp', 'desc')
-    )
-    
-    const querySnapshot = await getDocs(q)
-    const clips: Clip[] = []
-    
-    querySnapshot.forEach((doc) => {
-      const data = doc.data() as ClipData
-      clips.push({
-        id: doc.id,
-        ...data,
-        timestamp: data.timestamp instanceof Timestamp 
-          ? data.timestamp.toDate() 
-          : new Date(data.timestamp),
-      })
+  const q = query(collection(requireDb(), 'clips'), where('userId', '==', userId), orderBy('timestamp', 'desc'))
+  const querySnapshot = await getDocs(q)
+  const clips: Clip[] = []
+  querySnapshot.forEach((docSnap) => {
+    const data = docSnap.data() as ClipData
+    clips.push({
+      id: docSnap.id,
+      ...data,
+      timestamp: data.timestamp instanceof Timestamp ? data.timestamp.toDate() : new Date(data.timestamp),
     })
-    
-    return clips
-  } catch (error) {
-    console.error("Error getting user clips:", error)
-    throw error
-  }
+  })
+  return clips
 }
 
-/**
- * Get clips for a specific date (YYYY-MM-DD)
- */
+// Get clips by date
 export async function getClipsByDate(date: string): Promise<Clip[]> {
-  try {
-    const q = query(
-      collection(db, 'clips'),
-      where('date', '==', date),
-      orderBy('timestamp', 'desc')
-    )
-    
-    const querySnapshot = await getDocs(q)
-    const clips: Clip[] = []
-    
-    querySnapshot.forEach((doc) => {
-      const data = doc.data() as ClipData
-      clips.push({
-        id: doc.id,
-        ...data,
-        timestamp: data.timestamp instanceof Timestamp 
-          ? data.timestamp.toDate() 
-          : new Date(data.timestamp),
-      })
+  const q = query(
+    collection(requireDb(), 'clips'),
+    where('date', '==', date),
+    orderBy('timestamp', 'desc')
+  )
+  const querySnapshot = await getDocs(q)
+  const clips: Clip[] = []
+  querySnapshot.forEach((docSnap) => {
+    const data = docSnap.data() as ClipData
+    clips.push({
+      id: docSnap.id,
+      ...data,
+      timestamp: data.timestamp instanceof Timestamp ? data.timestamp.toDate() : new Date(data.timestamp),
     })
-    
-    return clips
-  } catch (error) {
-    console.error("Error getting clips by date:", error)
-    throw error
-  }
+  })
+  return clips
 }
 
-/**
- * Update a clip
- */
+// Update a clip
 export async function updateClip(clipId: string, updates: Partial<ClipData>): Promise<void> {
-  try {
-    const clipRef = doc(db, 'clips', clipId)
-    await updateDoc(clipRef, updates)
-    console.log("Clip updated successfully")
-  } catch (error) {
-    console.error("Error updating clip:", error)
-    throw error
-  }
+  const clipRef = doc(requireDb(), 'clips', clipId)
+  await updateDoc(clipRef, updates)
 }
 
-/**
- * Delete a clip
- */
+// Delete a clip
 export async function deleteClip(clipId: string): Promise<void> {
-  try {
-    await deleteDoc(doc(db, 'clips', clipId))
-    console.log("Clip deleted successfully")
-  } catch (error) {
-    console.error("Error deleting clip:", error)
-    throw error
+  await deleteDoc(doc(requireDb(), 'clips', clipId))
+}
+
+// Toggle like on a clip
+export async function toggleLike(
+  clipId: string,
+  userId: string
+): Promise<{ liked: boolean; newLikeCount: number }> {
+  const clipRef = doc(requireDb(), 'clips', clipId)
+  // Get current clip doc via query by id
+  const clipDoc = await getDocs(query(collection(requireDb(), 'clips'), where('__name__', '==', clipId)))
+  if (clipDoc.empty) {
+    throw new Error('Clip not found')
+  }
+  const clipData = clipDoc.docs[0].data() as ClipData
+  const likedBy = clipData.likedBy || []
+  const isLiked = likedBy.includes(userId)
+
+  if (isLiked) {
+    await updateDoc(clipRef, {
+      likedBy: likedBy.filter((id) => id !== userId),
+      likes: increment(-1),
+    })
+    return { liked: false, newLikeCount: clipData.likes - 1 }
+  } else {
+    await updateDoc(clipRef, {
+      likedBy: [...likedBy, userId],
+      likes: increment(1),
+    })
+    return { liked: true, newLikeCount: clipData.likes + 1 }
   }
 }
 
-// ==================== LIKE OPERATIONS ====================
-
-/**
- * Toggle like on a clip
- */
-export async function toggleLike(clipId: string, userId: string): Promise<{ liked: boolean; newLikeCount: number }> {
-  try {
-    const clipRef = doc(db, 'clips', clipId)
-    
-    // First, get the current state
-    const clipDoc = await getDocs(query(collection(db, 'clips'), where('__name__', '==', clipId)))
-    
-    if (clipDoc.empty) {
-      throw new Error('Clip not found')
-    }
-    
-    const clipData = clipDoc.docs[0].data() as ClipData
-    const likedBy = clipData.likedBy || []
-    const isLiked = likedBy.includes(userId)
-    
-    // Update the clip
-    if (isLiked) {
-      // Unlike: remove user from likedBy array and decrement likes
-      await updateDoc(clipRef, {
-        likedBy: likedBy.filter(id => id !== userId),
-        likes: increment(-1),
-      })
-      return { liked: false, newLikeCount: clipData.likes - 1 }
-    } else {
-      // Like: add user to likedBy array and increment likes
-      await updateDoc(clipRef, {
-        likedBy: [...likedBy, userId],
-        likes: increment(1),
-      })
-      return { liked: true, newLikeCount: clipData.likes + 1 }
-    }
-  } catch (error) {
-    console.error("Error toggling like:", error)
-    throw error
-  }
-}
-
-/**
- * Check if a user has liked specific clips
- */
+// Mark liked clips helper
 export function markClipsAsLiked(clips: Clip[], userId: string): Clip[] {
-  return clips.map(clip => ({
+  return clips.map((clip) => ({
     ...clip,
     isLiked: clip.likedBy?.includes(userId) || false,
   }))

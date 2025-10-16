@@ -3,10 +3,12 @@
 import Link from "next/link"
 import { CartDrawer } from "@/components/cart-drawer"
 import { useState, useEffect } from "react"
-import { getSignupCountsForWeek, addSignup } from "@/lib/signups"
+import { getSignupCountsForWeek, addSignup, getAllSignups } from "@/lib/signups"
 import { useAuth } from "@/lib/auth-context"
+// import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import { getClipsByDate, extractYouTubeId, type Clip } from "@/lib/clips"
+
 
 // Helper function to get the current week's dates starting from Monday
 function getCurrentWeekDates() {
@@ -71,19 +73,23 @@ export default function HomePage() {
   const { user, loading } = useAuth()
   const [pastClips, setPastClips] = useState<{ date: string; clips: Clip[] }[]>([])
   const [loadingClips, setLoadingClips] = useState(true)
+  const [allSignups, setAllSignups] = useState<any[]>([])
+  // Note: Guest modal flow removed in favor of standalone guest-signup page
+  const [showPrompt, setShowPrompt] = useState<{ open: boolean, message: string, onConfirm: () => void, onCancel: () => void }>({ open: false, message: "", onConfirm: () => {}, onCancel: () => {} })
 
   useEffect(() => {
     setMounted(true)
-    // Fetch real sign-up counts from Firestore
+    // Fetch real sign-up counts and all signups from Firestore
     const fetchCounts = async () => {
       try {
         const dateStrings = weekDates.map(d => d.toISOString().slice(0,10))
         const counts = await getSignupCountsForWeek(dateStrings)
         setCheckInCounts(counts)
         setLoadingCounts(false)
+        const all = await getAllSignups()
+        setAllSignups(all)
       } catch (error) {
         console.error("Error fetching signup counts:", error)
-        // Set all counts to 0 on error
         setCheckInCounts(Array(7).fill(0))
         setLoadingCounts(false)
       }
@@ -113,20 +119,80 @@ export default function HomePage() {
   }, [weekDates])
 
   async function handleSignup(index: number) {
-    if (!user) {
-      alert("Please sign in to check in!")
-      router.push("/account")
-      return
-    }
-    setSigningUp(index)
     const dateString = weekDates[index].toISOString().slice(0,10)
-    await addSignup(user.uid, user.displayName || "Anonymous", dateString)
-    // Refresh counts
-    const dateStrings = weekDates.map(d => d.toISOString().slice(0,10))
-    const counts = await getSignupCountsForWeek(dateStrings)
-    setCheckInCounts(counts)
-    setSigningUp(null)
+    // Check if user or guest already signed up for this date
+    const userSignedUp = user && allSignups.some(s => !s.isGuest && s.userId === user.uid && s.date === dateString)
+    const guestKey = `guest_signup_${dateString}`
+    const guestSignedUp = typeof window !== 'undefined' && localStorage.getItem(guestKey)
+
+    if (user) {
+      if (userSignedUp) {
+        // Already signed up, prompt to sign up for friends
+        setShowPrompt({
+          open: true,
+          message: "You already signed up for this date. Sign up a guest?",
+          onConfirm: () => {
+            setShowPrompt({ ...showPrompt, open: false })
+            router.push(`/guest-signup?date=${dateString}`)
+          },
+          onCancel: () => setShowPrompt({ ...showPrompt, open: false })
+        })
+        return
+      }
+      // Not signed up, allow sign up
+      setSigningUp(index)
+      await addSignup({
+        userId: user.uid,
+        username: user.displayName || "Anonymous",
+        displayName: user.displayName || null,
+        email: user.email || null,
+        isGuest: false,
+        date: dateString,
+      })
+      // Refresh counts and signups
+      const dateStrings = weekDates.map(d => d.toISOString().slice(0,10))
+      const counts = await getSignupCountsForWeek(dateStrings)
+      setCheckInCounts(counts)
+      setAllSignups(await getAllSignups())
+      setSigningUp(null)
+      return
+    } else {
+      // Not logged in
+      if (guestSignedUp) {
+        alert("You have already signed up as a guest for this date. Please sign in to sign up for yourself or more guests.")
+        return
+      }
+      setShowPrompt({
+        open: true,
+  message: "Create an account to sign up, or continue to guest sign up?",
+        onConfirm: () => {
+          setShowPrompt({ ...showPrompt, open: false })
+          router.push(`/guest-signup?date=${dateString}`)
+        },
+        onCancel: () => {
+          setShowPrompt({ ...showPrompt, open: false })
+          router.push("/account")
+        }
+      })
+    }
   }
+  // Modal and prompt rendering
+  function PromptModal() {
+    if (!showPrompt.open) return null
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+        <div className="bg-white text-black rounded-lg p-6 max-w-sm w-full">
+          <div className="mb-4">{showPrompt.message}</div>
+          <div className="flex gap-4 justify-end">
+            <button className="px-4 py-2 bg-[#3D9A6C] text-white rounded" onClick={showPrompt.onConfirm}>Yes</button>
+            <button className="px-4 py-2 bg-gray-300 rounded" onClick={showPrompt.onCancel}>No</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Guest modal removed: using standalone page
 
   // Helper to get today index
   const todayIndex = weekDates.findIndex(d => {
@@ -195,6 +261,10 @@ export default function HomePage() {
                 const special = getDaySpecial(adjustedIndex)
                 const pricing = getPricing(adjustedIndex)
                 const checked = mounted && !loadingCounts ? (checkInCounts[index] || 0) : 0
+                const dateString = date.toISOString().slice(0,10)
+                const nowString = new Date().toISOString().slice(0,10)
+                const isPast = dateString < nowString
+                const userSignedUpForDate = !!(user && allSignups.some(s => !s.isGuest && s.userId === user.uid && s.date === dateString))
                 
                 return (
                   <div 
@@ -244,7 +314,21 @@ export default function HomePage() {
                       <div className="pt-2 border-t border-[#2C2C2C] mt-2">
                         <div className="text-2xl font-bold text-[#3D9A6C] font-mono">{mounted && !loadingCounts ? checked : "—"}</div>
                         <div className="text-[10px] md:text-xs text-[#A1A1A1] uppercase tracking-wide">checked in</div>
-                        {user && (
+                        {isPast ? (
+                          <Link
+                            href="/clips"
+                            className="mt-2 inline-block px-3 py-1 rounded-xl bg-[#3D9A6C] text-[#F5F5F5] font-bold text-xs hover:bg-[#337E59] transition"
+                          >
+                            View Clips
+                          </Link>
+                        ) : userSignedUpForDate ? (
+                          <Link
+                            href={`/guest-signup?date=${dateString}`}
+                            className="mt-2 inline-block px-3 py-1 rounded-xl bg-[#3D9A6C] text-[#F5F5F5] font-bold text-xs hover:bg-[#337E59] transition"
+                          >
+                            Sign Up a Guest
+                          </Link>
+                        ) : (
                           <button
                             className="mt-2 px-3 py-1 rounded-xl bg-[#3D9A6C] text-[#F5F5F5] font-bold text-xs hover:bg-[#337E59] transition disabled:opacity-60"
                             disabled={signingUp === index}
@@ -266,84 +350,14 @@ export default function HomePage() {
             </div>
 
             {/* Check in for today */}
-            <div className="mt-8 flex flex-col items-center gap-2">
-              <h3 className="text-lg font-heading text-[#3D9A6C]">Check in for Today</h3>
-              <button
-                className="px-4 py-2 rounded-xl bg-[#3D9A6C] text-[#F5F5F5] font-bold text-sm hover:bg-[#337E59] transition disabled:opacity-60"
-                disabled={signingUp === todayIndex || todayIndex === -1}
-                onClick={() => handleSignup(todayIndex)}
-              >
-                {signingUp === todayIndex ? "Checking in..." : "Check In"}
-              </button>
-            </div>
 
             {/* Sign up for future dates */}
-            <div className="mt-8 p-4 bg-[#1E1E1E] border border-[#2C2C2C] rounded-xl">
-              <h3 className="text-lg font-heading text-[#3D9A6C] mb-2">Sign Up for Future Dates</h3>
-              <div className="flex flex-wrap gap-2 justify-center">
-                {weekDates.map((date, idx) => {
-                  const dateString = date.toISOString().slice(0,10)
-                  const nowString = new Date().toISOString().slice(0,10)
-                  if (dateString <= nowString) return null // Only future dates
-                  return (
-                    <button
-                      key={dateString}
-                      className="px-3 py-1 rounded-xl bg-[#3D9A6C] text-[#F5F5F5] font-mono text-xs hover:bg-[#337E59] transition disabled:opacity-60"
-                      disabled={signingUp === idx}
-                      onClick={() => handleSignup(idx)}
-                    >
-                      {signingUp === idx ? "Signing up..." : dateString}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
 
             {/* Show clips for past dates */}
-            <div className="mt-8 p-4 bg-[#1E1E1E] border border-[#2C2C2C] rounded-xl">
-              <h3 className="text-lg font-heading text-[#3D9A6C] mb-4">Clips from Past Dates</h3>
-              {loadingClips ? (
-                <p className="text-sm text-[#A1A1A1]">Loading clips...</p>
-              ) : pastClips.length === 0 ? (
-                <div className="text-center py-4">
-                  <p className="text-sm text-[#A1A1A1] mb-3">No clips from past game days yet.</p>
-                  <Link href="/clips" className="text-[#3D9A6C] hover:text-[#337E59] font-semibold underline">
-                    View all clips →
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {pastClips.map(({ date, clips }) => (
-                    <div key={date} className="border-t border-[#2C2C2C] pt-4 first:border-t-0 first:pt-0">
-                      <h4 className="text-md font-mono text-[#F5F5F5] mb-3">{date}</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {clips.slice(0, 4).map((clip) => (
-                          <div key={clip.id} className="bg-[#0D0D0D] border border-[#2C2C2C] rounded-xl p-3 hover:border-[#3D9A6C] transition">
-                            <div className="aspect-video bg-black rounded-lg mb-2 overflow-hidden">
-                              <iframe
-                                src={`https://www.youtube.com/embed/${clip.youtubeId}`}
-                                className="w-full h-full"
-                                allowFullScreen
-                              />
-                            </div>
-                            <h5 className="text-sm font-heading text-[#F5F5F5] truncate">{clip.title}</h5>
-                            <p className="text-xs text-[#A1A1A1]">by {clip.username}</p>
-                          </div>
-                        ))}
-                      </div>
-                      {clips.length > 4 && (
-                        <Link href="/clips" className="text-xs text-[#3D9A6C] hover:text-[#337E59] mt-2 inline-block">
-                          View all {clips.length} clips from {date} →
-                        </Link>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
         </div>
       </main>
-    </div>
+  <PromptModal />
+  </div>
   )
 }
