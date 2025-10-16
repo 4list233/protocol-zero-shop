@@ -16,6 +16,7 @@ const firebaseConfig = {
 } as const
 
 const isBrowser = typeof window !== 'undefined'
+const isFirebaseConfigured = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId)
 
 let app: FirebaseApp | undefined
 let auth: Auth | undefined
@@ -38,5 +39,5 @@ if (isBrowser && app && firebaseConfig.measurementId) {
     // Ignore analytics errors in non-browser environments
   }
 }
-export { app, auth, db, analytics }
+export { app, auth, db, analytics, isFirebaseConfigured }
 // export { storage } // Commented out - Storage requires Blaze plan upgrade

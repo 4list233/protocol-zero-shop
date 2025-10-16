@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context"
 // import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import { getClipsByDate, extractYouTubeId, type Clip } from "@/lib/clips"
+import { isFirebaseConfigured } from "@/lib/firebase"
 
 
 // Helper function to get the current week's dates starting from Monday
@@ -74,6 +75,7 @@ export default function HomePage() {
   const [pastClips, setPastClips] = useState<{ date: string; clips: Clip[] }[]>([])
   const [loadingClips, setLoadingClips] = useState(true)
   const [allSignups, setAllSignups] = useState<any[]>([])
+  const [showFirebaseBanner, setShowFirebaseBanner] = useState(!isFirebaseConfigured)
   // Note: Guest modal flow removed in favor of standalone guest-signup page
   const [showPrompt, setShowPrompt] = useState<{ open: boolean, message: string, onConfirm: () => void, onCancel: () => void }>({ open: false, message: "", onConfirm: () => {}, onCancel: () => {} })
 
@@ -224,6 +226,20 @@ export default function HomePage() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8 md:py-12">
+        {showFirebaseBanner && (
+          <div className="mb-6 p-4 bg-red-900/30 border border-red-600/40 text-red-200 rounded-xl flex items-start justify-between gap-4">
+            <div>
+              <p className="font-semibold">Firebase is not configured.</p>
+              <p className="text-sm opacity-80">Set NEXT_PUBLIC_FIREBASE_* environment variables to enable sign-ups, auth, and clips.</p>
+            </div>
+            <button
+              className="px-3 py-1 text-xs bg-red-800/40 hover:bg-red-800/60 rounded-md"
+              onClick={() => setShowFirebaseBanner(false)}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
         <div className="max-w-7xl mx-auto space-y-12">
           {/* Hero Section */}
           <div className="text-center space-y-6 py-8">
